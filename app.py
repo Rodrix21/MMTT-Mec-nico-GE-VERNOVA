@@ -538,7 +538,7 @@ def main():
             return "background:#3e1e1e;color:#ef9a9a"
 
         if rows_tbl:
-            st.dataframe(pd.DataFrame(rows_tbl).style.applymap(color_r2,subset=["R²"]),
+            st.dataframe(pd.DataFrame(rows_tbl).style.map(color_r2,subset=["R²"]),
                          use_container_width=True, height=420)
 
         if forecasts:
