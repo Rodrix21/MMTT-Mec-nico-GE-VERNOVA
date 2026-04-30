@@ -298,7 +298,7 @@ def fig_heatmap(df_unit, unit_label):
         text=[[f"{v:.2f}" for v in row] for row in z],
         texttemplate="%{text}", textfont=dict(size=10,color="#000"),
         hovertemplate="Zona:%{y} Pos:%{x}<br>%{z:.3f} mm<extra></extra>",
-        colorbar=dict(title="mm",tickfont=dict(color="#c8d0e0"),titlefont=dict(color="#c8d0e0")),
+        colorbar=dict(title=dict(text="mm", font=dict(color="#c8d0e0")), tickfont=dict(color="#c8d0e0")),
     ))
     fig.update_layout(**BL, height=320,
         title=dict(text=f"🌡️ Mapa de calor — {unit_label} · {pd.Timestamp(last).strftime('%Y-%m-%d')}",
