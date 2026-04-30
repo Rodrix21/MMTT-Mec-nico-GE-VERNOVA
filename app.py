@@ -13,9 +13,6 @@ import zipfile
 import warnings
 warnings.filterwarnings("ignore")
 
-# ──────────────────────────────────────────────────────────────
-# PAGE CONFIG
-# ──────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="GE Vernova · Análisis de Desgaste",
     page_icon="⚡",
@@ -23,15 +20,11 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# ──────────────────────────────────────────────────────────────
-# CUSTOM CSS
-# ──────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
   [data-testid="stAppViewContainer"] { background:#0a0e1a; color:#e8eaf0; }
   [data-testid="stSidebar"] { background:#0d1220; border-right:1px solid #1e2a45; }
   [data-testid="stSidebar"] * { color:#c8d0e0 !important; }
-
   .ge-header {
       display:flex; align-items:center; gap:18px;
       padding:18px 28px; margin-bottom:6px;
@@ -41,7 +34,6 @@ st.markdown("""
   .ge-header h1 { margin:0; font-size:1.55rem; font-weight:700;
       color:#e8f0fe; letter-spacing:.03em; }
   .ge-header span { font-size:.85rem; color:#7986cb; font-style:italic; }
-
   .kpi-grid { display:flex; gap:14px; flex-wrap:wrap; margin-bottom:20px; }
   .kpi-card { flex:1; min-width:140px; background:#111827;
       border:1px solid #1e3a5f; border-radius:10px; padding:14px 18px;
@@ -52,14 +44,11 @@ st.markdown("""
   .kpi-sub   { font-size:.75rem; color:#546e8a; margin-top:2px; }
   .kpi-warn  { color:#ef5350 !important; }
   .kpi-ok    { color:#26c6da !important; }
-
   .section-title { font-size:1rem; font-weight:600; color:#90caf9;
       border-left:3px solid #1565c0; padding-left:10px; margin:24px 0 10px; }
-
   [data-testid="stTabs"] button { color:#90caf9 !important; }
   [data-testid="stTabs"] button[aria-selected="true"] {
       border-bottom:2px solid #1565c0 !important; color:#e8f0fe !important; }
-
   .stSelectbox label,.stSlider label,
   .stMultiSelect label,.stRadio label { color:#90caf9 !important; }
   div[data-baseweb="select"]>div { background:#111827 !important;
@@ -69,63 +58,39 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ──────────────────────────────────────────────────────────────
-# PATHS — CSV data folder (committed to GitHub)
-# ──────────────────────────────────────────────────────────────
 DATA_DIR = "data"
 
 
-# ──────────────────────────────────────────────────────────────
-# EXCEL PARSER
-# ──────────────────────────────────────────────────────────────
 def parse_excel(file_obj):
-    """
-    Lee el .xlsm y devuelve un dict de DataFrames:
-      rodete_UG1, rodete_UG2, directriz_UG1, directriz_UG2
-    """
     wb = openpyxl.load_workbook(file_obj, read_only=True, data_only=True)
-
-    sheets_rod = {"UG1": "UG1_MED_ALAB_ROD_PER_SAL",
-                  "UG2": "UG2_MED_ALAB_ROD_PER_SAL"}
-    sheets_dir = {"UG1": "UG1_MED_HOL_ALAB_DIREC",
-                  "UG2": "UG2_MED_HOL_ALAB_DIREC"}
+    sheets_rod = {"UG1": "UG1_MED_ALAB_ROD_PER_SAL", "UG2": "UG2_MED_ALAB_ROD_PER_SAL"}
+    sheets_dir = {"UG1": "UG1_MED_HOL_ALAB_DIREC",   "UG2": "UG2_MED_HOL_ALAB_DIREC"}
     result = {}
-
     for unit, sname in sheets_rod.items():
         ws = wb[sname]
         rows = []
         for i, row in enumerate(ws.iter_rows(values_only=True)):
-            if i < 2:
-                continue
-            if row[0] is None or not isinstance(row[0], datetime):
-                continue
+            if i < 2: continue
+            if row[0] is None or not isinstance(row[0], datetime): continue
             rows.append({"fecha": row[0].date(), "punto": row[1],
                          **{f"M{j+1}": row[2+j] for j in range(13)}})
         result[f"rodete_{unit}"] = pd.DataFrame(rows)
-
     for unit, sname in sheets_dir.items():
         ws = wb[sname]
         rows = []
         for i, row in enumerate(ws.iter_rows(values_only=True)):
-            if i < 2:
-                continue
-            if row[0] is None or not isinstance(row[0], datetime):
-                continue
+            if i < 2: continue
+            if row[0] is None or not isinstance(row[0], datetime): continue
             rows.append({"fecha": row[0].date(), "alabe": row[1],
                          "sup_entrada_A": row[2], "sup_salida_B": row[3],
                          "inf_entrada_A": row[4], "inf_salida_B": row[5]})
         result[f"directriz_{unit}"] = pd.DataFrame(rows)
-
     wb.close()
     return result
 
 
-# ──────────────────────────────────────────────────────────────
-# DATA LOADING
-# ──────────────────────────────────────────────────────────────
 @st.cache_data
 def load_csv_data():
-    """Carga los CSVs que viven en /data del repo."""
     data = {}
     for key in ["rodete_UG1", "rodete_UG2", "directriz_UG1", "directriz_UG2"]:
         path = os.path.join(DATA_DIR, f"data_{key}.csv")
@@ -137,35 +102,27 @@ def load_csv_data():
 
 
 def get_data():
-    """Prioridad: datos procesados en sesión > CSVs del repo."""
     if "live_data" in st.session_state:
         return st.session_state["live_data"]
     return load_csv_data()
 
 
-# ──────────────────────────────────────────────────────────────
-# REGRESSION HELPERS
-# ──────────────────────────────────────────────────────────────
 def days_from_origin(dates):
     t0 = dates.min()
     return (dates - t0).dt.days.values, t0
-
 
 def _r2(y, yp):
     ss = np.sum((y - np.mean(y))**2)
     return 1 - np.sum((y-yp)**2)/ss if ss > 0 else 0
 
-
 def _rmse(y, yp):
     return np.sqrt(np.mean((y-yp)**2))
-
 
 def fit_linear(x, y):
     s, b, *_ = stats.linregress(x, y)
     yp = s*x+b
     return {"name":"Lineal","pred":lambda xx,s=s,b=b:s*xx+b,
             "r2":_r2(y,yp),"rmse":_rmse(y,yp),"color":"#42a5f5"}
-
 
 def fit_poly(x, y, deg):
     c = np.polyfit(x, y, deg)
@@ -174,7 +131,6 @@ def fit_poly(x, y, deg):
     return {"name":f"Polinómica g{deg}","pred":lambda xx,p=p:p(xx),
             "r2":_r2(y,yp),"rmse":_rmse(y,yp),
             "color":"#ab47bc" if deg==2 else "#ce93d8"}
-
 
 def fit_exp(x, y):
     try:
@@ -186,7 +142,6 @@ def fit_exp(x, y):
     except Exception:
         return None
 
-
 def fit_pow(x, y):
     try:
         def fn(xx,a,b,c): return a*(np.abs(np.where(xx==0,1,xx))**b)+c
@@ -197,14 +152,12 @@ def fit_pow(x, y):
     except Exception:
         return None
 
-
 def get_all_fits(x, y):
     fits = [fit_linear(x,y), fit_poly(x,y,2), fit_poly(x,y,3)]
     for fn in [fit_exp, fit_pow]:
         f = fn(x,y)
         if f: fits.append(f)
     return sorted(fits, key=lambda f:-f["r2"])
-
 
 def forecast_crossing(fit, x_max, y_target, t0, horizon_days):
     xs = np.linspace(0, x_max+horizon_days, 3000)
@@ -215,9 +168,6 @@ def forecast_crossing(fit, x_max, y_target, t0, horizon_days):
     return None
 
 
-# ──────────────────────────────────────────────────────────────
-# PLOT HELPERS
-# ──────────────────────────────────────────────────────────────
 BL = dict(
     paper_bgcolor="#111827", plot_bgcolor="#0f1623",
     font=dict(color="#c8d0e0", family="Inter, Arial"),
@@ -319,15 +269,17 @@ def fig_regression(df_p, title, med_idx, reg_names, threshold, forecast_yrs):
         fig.add_hline(y=threshold, line_dash="dot", line_color="#ef5350",
                       annotation_text=f"Límite crítico {threshold} mm",
                       annotation_font_color="#ef5350")
+
     today_str = datetime.today().strftime("%Y-%m-%d")
-fig.add_shape(type="line",
-              x0=today_str, x1=today_str, y0=0, y1=1,
-              xref="x", yref="paper",
-              line=dict(color="#546e8a", dash="dot", width=1.5))
-fig.add_annotation(x=today_str, y=1, xref="x", yref="paper",
-                   text="Hoy", showarrow=False,
-                   font=dict(color="#546e8a", size=11),
-                   xanchor="left", yanchor="top")
+    fig.add_shape(type="line",
+                  x0=today_str, x1=today_str, y0=0, y1=1,
+                  xref="x", yref="paper",
+                  line=dict(color="#546e8a", dash="dot", width=1.5))
+    fig.add_annotation(x=today_str, y=1, xref="x", yref="paper",
+                       text="Hoy", showarrow=False,
+                       font=dict(color="#546e8a", size=11),
+                       xanchor="left", yanchor="top")
+
     fig.update_layout(**BL, height=460,
         title=dict(text=f"📈 Regresión y pronóstico — {title} · Pos {med_idx}",font_size=14,x=0.01),
         xaxis_title="Fecha",yaxis_title="Espesor (mm)")
@@ -381,9 +333,6 @@ def fig_delta(df_unit, unit_label):
     return fig
 
 
-# ──────────────────────────────────────────────────────────────
-# SIDEBAR — DATA MANAGEMENT PANEL
-# ──────────────────────────────────────────────────────────────
 def sidebar_data_panel():
     st.sidebar.markdown("### 📂 Actualizar datos")
     st.sidebar.markdown(
@@ -395,13 +344,11 @@ def sidebar_data_panel():
         '<code style="color:#90caf9">/data</code> del repo en GitHub.</p></div>',
         unsafe_allow_html=True,
     )
-
     uploaded = st.sidebar.file_uploader(
         "Subir .xlsm / .xlsx",
         type=["xlsm","xlsx"],
         help="El archivo no se almacena en el servidor. Solo se procesa en tu sesión.",
     )
-
     if uploaded is not None:
         with st.sidebar:
             with st.spinner("Procesando…"):
@@ -432,13 +379,9 @@ def sidebar_data_panel():
             "⬇️ data_vernova.zip",
             data=buf, file_name="data_vernova.zip", mime="application/zip",
         )
-
     st.sidebar.markdown("---")
 
 
-# ──────────────────────────────────────────────────────────────
-# MAIN
-# ──────────────────────────────────────────────────────────────
 def main():
     st.markdown("""
     <div class="ge-header">
@@ -461,11 +404,9 @@ def main():
         )
         st.stop()
 
-    # ── Sidebar controls
     with st.sidebar:
         st.markdown("### ⚙️ Panel de Control")
         st.markdown("---")
-
         unit_map   = {k.replace("rodete_","").replace("_","-"): k for k in rodete_keys}
         unit_label = st.selectbox("🔧 Unidad Generadora", list(unit_map.keys()))
         df_unit    = rodete_keys[unit_map[unit_label]]
@@ -491,7 +432,6 @@ def main():
         med_vis = st.multiselect("Posiciones a graficar (1–13)",
                                   list(range(1,14)), default=list(range(1,14)))
 
-    # ── KPIs
     m_cols  = [f"M{i}" for i in range(1,14)]
     r_first = df_p.iloc[0]; r_last = df_p.iloc[-1]
     avg_f   = np.nanmean([r_first.get(c,np.nan) for c in m_cols])
@@ -501,10 +441,10 @@ def main():
     rate_yr = wear/n_days*365 if n_days > 0 else 0
 
     kpis = [
-        ("Unidad",             unit_label,           "",                                        ""),
-        ("Zona analizada",     punto,                 "",                                        ""),
-        ("Inspecciones",       len(df_p),             "campañas",                                "kpi-ok"),
-        ("Espesor inicial",    f"{avg_f:.3f} mm",     df_p['fecha'].min().strftime('%Y-%m-%d'),  ""),
+        ("Unidad",             unit_label,           "",                                       ""),
+        ("Zona analizada",     punto,                 "",                                       ""),
+        ("Inspecciones",       len(df_p),             "campañas",                               "kpi-ok"),
+        ("Espesor inicial",    f"{avg_f:.3f} mm",     df_p['fecha'].min().strftime('%Y-%m-%d'), ""),
         ("Espesor actual",     f"{avg_l:.3f} mm",     df_p['fecha'].max().strftime('%Y-%m-%d'),
          "kpi-warn" if avg_l < threshold else "kpi-ok"),
         ("Desgaste acumulado", f"{wear:.3f} mm",      "desde primera medición",
@@ -524,7 +464,6 @@ def main():
             </div>""", unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
-    # ── Tabs
     tab1,tab2,tab3,tab4 = st.tabs([
         "📏 Evolución temporal",
         "📐 Perfil espacial",
