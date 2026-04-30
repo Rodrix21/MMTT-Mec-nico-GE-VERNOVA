@@ -319,9 +319,15 @@ def fig_regression(df_p, title, med_idx, reg_names, threshold, forecast_yrs):
         fig.add_hline(y=threshold, line_dash="dot", line_color="#ef5350",
                       annotation_text=f"Límite crítico {threshold} mm",
                       annotation_font_color="#ef5350")
-    fig.add_vline(x=datetime.today().strftime("%Y-%m-%d"), line_dash="dot",
-                  line_color="#546e8a", annotation_text="Hoy",
-                  annotation_font_color="#546e8a", annotation_position="top right")
+    today_str = datetime.today().strftime("%Y-%m-%d")
+fig.add_shape(type="line",
+              x0=today_str, x1=today_str, y0=0, y1=1,
+              xref="x", yref="paper",
+              line=dict(color="#546e8a", dash="dot", width=1.5))
+fig.add_annotation(x=today_str, y=1, xref="x", yref="paper",
+                   text="Hoy", showarrow=False,
+                   font=dict(color="#546e8a", size=11),
+                   xanchor="left", yanchor="top")
     fig.update_layout(**BL, height=460,
         title=dict(text=f"📈 Regresión y pronóstico — {title} · Pos {med_idx}",font_size=14,x=0.01),
         xaxis_title="Fecha",yaxis_title="Espesor (mm)")
