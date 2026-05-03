@@ -116,26 +116,35 @@ def parse_excel(file_obj):
                              "US_interno":v[2],"US_externo":v[3]})
         if rows: out[f"freno_{unit}"] = pd.DataFrame(rows)
 
-    # ── Placa Sello Eje  (usa MED_PLAC_DESGA_SELL_EJE que tiene años como int)
-    for unit in ["UG1","UG2"]:
-        sname = f"{unit}_MED_PLAC_DESGA_SELL_EJE"
-        if sname not in wb.sheetnames: continue
-        ws = wb[sname]
+    # ── Placa Sello Eje — lee ambas variantes de nombre y combina
+    def _parse_sello_ws(ws):
         all_rows = list(ws.iter_rows(values_only=True))
-        years = [int(c) for c in all_rows[1][1:] if c and str(c).strip() and
-                 re.match(r'20\d\d', str(c))]
+        years = []
+        for c in all_rows[1][1:]:
+            if not c: continue
+            m = re.search(r'\b(20\d\d)\b', str(c))
+            if m: years.append(int(m.group(1)))
         rows = []
         for row in all_rows[2:]:
             if not row[0]: continue
             punto = str(row[0]).strip()
             vals = list(row[1:])
-            for i,yr in enumerate(years):
-                b = i*2
+            for i, yr in enumerate(years):
+                b = i * 2
                 v1 = vals[b]   if b   < len(vals) else None
                 v2 = vals[b+1] if b+1 < len(vals) else None
                 if v1 is None and v2 is None: continue
-                rows.append({"año":yr,"punto":punto,"sensor_1":v1,"sensor_2":v2})
-        if rows: out[f"sello_{unit}"] = pd.DataFrame(rows)
+                rows.append({"año": yr, "punto": punto, "sensor_1": v1, "sensor_2": v2})
+        return rows
+
+    for unit in ["UG1", "UG2"]:
+        rows = []
+        for sname in [f"{unit}_MED_PLAC_DESGA_SELL_EJE", f"{unit}_MEDI_DESG_PLAC_SELL_EJE"]:
+            if sname in wb.sheetnames:
+                rows.extend(_parse_sello_ws(wb[sname]))
+        if rows:
+            df_s = pd.DataFrame(rows).drop_duplicates(subset=["año","punto"], keep="first")
+            out[f"sello_{unit}"] = df_s
 
     # ── Cojinete Guía
     for unit in ["UG1","UG2"]:
